@@ -79,13 +79,19 @@
 
 
 
-<meta property="og:type" content="website">
-<meta property="og:title" content="Hexo">
-<meta property="og:url" content="http://yoursite.com/index.html">
+<meta name="description" content="从汇编角度理解C/C++函数调用，能够加深我们对代码的理解，提升调试能力。本文主要讲函数调用栈的建立和销毁、call与ret指令的本质、栈变量的申请、函数参数-返回地址-ebp在栈上的相对位置。 1.前言123456789101112131415//main.cint bar(int c, int d)&amp;#123;    int e = c + d;    return e;&amp;#125;int f">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从汇编角度看C语言函数调用">
+<meta property="og:url" content="http://yoursite.com/2018/12/11/function_call/index.html">
 <meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="从汇编角度理解C/C++函数调用，能够加深我们对代码的理解，提升调试能力。本文主要讲函数调用栈的建立和销毁、call与ret指令的本质、栈变量的申请、函数参数-返回地址-ebp在栈上的相对位置。 1.前言123456789101112131415//main.cint bar(int c, int d)&amp;#123;    int e = c + d;    return e;&amp;#125;int f">
 <meta property="og:locale" content="default">
+<meta property="og:image" content="https://tech-glog-png-1255569527.cos.ap-beijing.myqcloud.com/callstack.png">
+<meta property="og:updated_time" content="2018-12-11T15:22:15.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Hexo">
+<meta name="twitter:title" content="从汇编角度看C语言函数调用">
+<meta name="twitter:description" content="从汇编角度理解C/C++函数调用，能够加深我们对代码的理解，提升调试能力。本文主要讲函数调用栈的建立和销毁、call与ret指令的本质、栈变量的申请、函数参数-返回地址-ebp在栈上的相对位置。 1.前言123456789101112131415//main.cint bar(int c, int d)&amp;#123;    int e = c + d;    return e;&amp;#125;int f">
+<meta name="twitter:image" content="https://tech-glog-png-1255569527.cos.ap-beijing.myqcloud.com/callstack.png">
 
 
 
@@ -115,13 +121,13 @@
 
 
 
-  <link rel="canonical" href="http://yoursite.com/">
+  <link rel="canonical" href="http://yoursite.com/2018/12/11/function_call/">
 
 
 
 
 
-  <title>Hexo</title>
+  <title>从汇编角度看C语言函数调用 | Hexo</title>
   
 
 
@@ -140,8 +146,7 @@
     
   
 
-  <div class="container sidebar-position-left 
-  page-home">
+  <div class="container sidebar-position-left page-post-detail">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
@@ -214,9 +219,9 @@
         <div class="content-wrap">
           <div id="content" class="content">
             
-  <section id="posts" class="posts-expand">
+
+  <div id="posts" class="posts-expand">
     
-      
 
   
 
@@ -246,9 +251,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/12/11/function_call/" itemprop="url">从汇编角度看C语言函数调用</a></h1>
+          <h1 class="post-title" itemprop="name headline">从汇编角度看C语言函数调用</h1>
         
 
         <div class="post-meta">
@@ -298,9 +301,7 @@
       
 
       
-        
-          
-            <p>从汇编角度理解C/C++函数调用，能够加深我们对代码的理解，提升调试能力。本文主要讲函数调用栈的建立和销毁、call与ret指令的本质、栈变量的申请、函数参数-返回地址-ebp在栈上的相对位置。</p>
+        <p>从汇编角度理解C/C++函数调用，能够加深我们对代码的理解，提升调试能力。本文主要讲函数调用栈的建立和销毁、call与ret指令的本质、栈变量的申请、函数参数-返回地址-ebp在栈上的相对位置。</p>
 <h2 id="1-前言"><a href="#1-前言" class="headerlink" title="1.前言"></a>1.前言</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//main.c</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">bar</span><span class="params">(<span class="keyword">int</span> c, <span class="keyword">int</span> d)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> e = c + d;</span><br><span class="line">    <span class="keyword">return</span> e;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">foo</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> bar(a, b);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    foo(<span class="number">2</span>, <span class="number">5</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>编译这段代码，进入gdb，然后对main函数进行反汇编(<code>disassemble main</code>)，得到如下汇编代码.</p>
 <blockquote>
@@ -350,8 +351,6 @@
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>函数调用过程中栈的变化如图 <img src="https://tech-glog-png-1255569527.cos.ap-beijing.myqcloud.com/callstack.png" alt="栈变化图"></p>
 <p>我们可以看到子程序调用之前和之后（1&amp;6），函数栈是没有任何变化的，有变化的在于<code>rip</code>等相关寄存器的值；<code>call</code>指令执行之后与<code>ret</code>指令执行之前，函数栈也是相同的，而<code>ret</code>指令之所以能转交控制权，是因为<code>ip</code>的值被保存到栈上。 这里我们可以看到，栈不仅仅有保存的局部变量数据，也有对控制转移指令至关重要的寄存器临时存储。一旦栈被写坏，控制转移指令就无法正常执行。下一节，我们将讲解与栈相关的控制转移指令被写坏的场景。</p>
 
-          
-        
       
     </div>
     
@@ -368,12 +367,12 @@
       
 
       
+      
+      
 
       
 
       
-      
-        <div class="post-eof"></div>
       
     </footer>
   </div>
@@ -383,10 +382,11 @@
   </article>
 
 
-    
-  </section>
 
-  
+    <div class="post-spread">
+      
+    </div>
+  </div>
 
 
           </div>
@@ -394,6 +394,10 @@
 
 
           
+
+  
+
+
 
         </div>
         
@@ -414,8 +418,17 @@
       
 
       
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
 
-      <section class="site-overview-wrap sidebar-panel sidebar-panel-active">
+      <section class="site-overview-wrap sidebar-panel">
         <div class="site-overview">
           <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
             
@@ -457,6 +470,22 @@
         </div>
       </section>
 
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-前言"><span class="nav-number">1.</span> <span class="nav-text">1.前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-进入被调用函数的准备"><span class="nav-number">2.</span> <span class="nav-text">2.进入被调用函数的准备</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#call指令"><span class="nav-number">2.1.</span> <span class="nav-text">call指令</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-新函数栈的建立与销毁"><span class="nav-number">3.</span> <span class="nav-text">3.新函数栈的建立与销毁</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#函数栈的建立"><span class="nav-number">3.1.</span> <span class="nav-text">函数栈的建立</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#函数中局部变量的申请与赋值"><span class="nav-number">3.2.</span> <span class="nav-text">函数中局部变量的申请与赋值</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#函数栈的销毁"><span class="nav-number">3.3.</span> <span class="nav-text">函数栈的销毁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#控制转移的恢复ret-retq"><span class="nav-number">3.4.</span> <span class="nav-text">控制转移的恢复ret/retq</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
       
 
       
@@ -590,6 +619,10 @@
   
 
   
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
 
   
 
